@@ -4,6 +4,7 @@ const LOCAL_MS = 3 * 60 * 60 * 1000; // samples this browser collected, kept for
 const MAX_GAMES = 6;
 const COLORS = ["#7cf7c9", "#8a7bff", "#ff6fb5", "#ffc46b", "#6bc5ff", "#ff8a5b"];
 const RANGES = { "1h": 3600e3, "6h": 6 * 3600e3, "24h": 24 * 3600e3 };
+const TIME_STEPS = [15e3, 30e3, 60e3, 2 * 60e3, 5 * 60e3, 10 * 60e3, 15 * 60e3, 30 * 60e3, 3600e3, 2 * 3600e3, 3 * 3600e3, 6 * 3600e3];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const $ = (s) => document.querySelector(s);
@@ -185,8 +186,19 @@ function trend(el, change, label) {
   el.className = `trend ${up ? "up" : "down"}`;
 }
 
+// shrink a big number's font until its final value fits on one line
+function fitText(el, text) {
+  const shown = el.textContent;
+  el.style.fontSize = "";
+  el.textContent = text;
+  const { scrollWidth, clientWidth } = el;
+  if (scrollWidth > clientWidth) el.style.fontSize = `${Math.floor((parseFloat(getComputedStyle(el).fontSize) * clientWidth) / scrollWidth)}px`;
+  el.textContent = shown;
+}
+
 function renderTotal(total) {
   $(".big-stat").classList.remove("loading");
+  fitText($("#total"), full.format(total));
   tween($("#total"), total);
   const tot = totalSeries();
   trend($("#total-delta"), changeOver(totalSeries(2 * 3600e3), 3600e3), "in 1h"); // independent of the chosen range
@@ -485,12 +497,15 @@ function drawChart() {
     ctx.fillText(nf.format(val), pad.l - 10, yy + 4);
   }
   ctx.setLineDash([]);
-  ctx.textAlign = "center";
-  const ticks = Math.max(2, Math.min(6, Math.floor(W / 110)));
-  for (let i = 0; i <= ticks; i++) {
-    const t = v.t0 + ((v.t1 - v.t0) / ticks) * i;
-    ctx.textAlign = i === 0 ? "left" : i === ticks ? "right" : "center";
-    ctx.fillText(new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), x(t), height - 6);
+  // time labels on round local times, spaced so they never repeat
+  const maxTicks = Math.max(2, Math.floor(W / 100));
+  const step = TIME_STEPS.find((s) => (v.t1 - v.t0) / s <= maxTicks) ?? 12 * 3600e3;
+  const tz = new Date().getTimezoneOffset() * 60e3;
+  const fmt = step < 60e3 ? { hour: "2-digit", minute: "2-digit", second: "2-digit" } : { hour: "2-digit", minute: "2-digit" };
+  for (let t = Math.ceil((v.t0 - tz) / step) * step + tz; t <= v.t1; t += step) {
+    const tx = x(t);
+    ctx.textAlign = tx < pad.l + 30 ? "left" : tx > width - pad.r - 30 ? "right" : "center";
+    ctx.fillText(new Date(t).toLocaleTimeString([], fmt), tx, height - 6);
   }
 
   // series, revealed left to right on first load
