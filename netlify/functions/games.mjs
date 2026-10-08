@@ -1,21 +1,26 @@
 // GET /api/games?places=920587237,1537690962
 // Resolves Roblox place IDs to their universe and merges game details, votes and icons into
 // one response. Roblox's public APIs don't send CORS headers, so the browser can't call them directly.
+// Each game also carries its stored 24-hour player history (see ../lib/history.mjs).
+import { getJson, universeFor } from "../lib/roblox.mjs";
+import { openStore, record, touchWatch } from "../lib/history.mjs";
 
 const MAX_PLACES = 6;
 
-async function getJson(url) {
-  const res = await fetch(url, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`${res.status} from ${new URL(url).host}`);
-  return res.json();
-}
-
-async function universeFor(placeId) {
+// Attach history to each game and record this sample. Never fails the request: without
+// storage the dashboard still works, it just starts with an empty chart.
+async function withHistory(games) {
+  const store = openStore();
+  if (!store) return false;
   try {
-    const { universeId } = await getJson(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
-    return universeId ?? null;
-  } catch {
-    return null;
+    const now = Date.now();
+    const hist = await Promise.all(games.map((g) => record(store, g.universeId, g.playing, now)));
+    games.forEach((g, i) => { g.history = hist[i]; });
+    await touchWatch(store, games.map((g) => g.universeId), now);
+    return true;
+  } catch (err) {
+    console.error("history unavailable:", err.message);
+    return false;
   }
 }
 
@@ -65,8 +70,9 @@ export default async (req) => {
       url: `https://www.roblox.com/games/${g.rootPlaceId}`,
     }));
 
+    const history = await withHistory(out);
     return Response.json(
-      { games: out, notFound, fetchedAt: new Date().toISOString() },
+      { games: out, notFound, history, fetchedAt: new Date().toISOString() },
       { headers: { "cache-control": "public, max-age=15" } }
     );
   } catch (err) {

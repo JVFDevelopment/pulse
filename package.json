@@ -1,0 +1,8 @@
+{
+  "name": "pulse",
+  "private": true,
+  "description": "Live analytics for Roblox games",
+  "dependencies": {
+    "@netlify/blobs": "^10.7.13"
+  }
+}
