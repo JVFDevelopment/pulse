@@ -87,7 +87,8 @@ main { padding: 32px clamp(16px, 4vw, 48px); display: grid; gap: 24px; }
 .trend.down { color: var(--down); background: rgba(255, 111, 142, .1); }
 
 .chart-wrap { padding: 20px 20px 14px; position: relative; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; }
-.chart-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.chart-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.chart-head .label { margin-right: auto; }
 .ranges { display: flex; padding: 3px; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
 .ranges button {
   background: none; border: 0; color: var(--muted); font: 600 12px "JetBrains Mono", monospace; padding: 6px 12px; border-radius: 7px;

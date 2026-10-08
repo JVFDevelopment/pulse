@@ -20,6 +20,16 @@ const local = loadLocal(); // { [universeId]: [{ t, v }] }
 const series = new Map(); // universeId -> server history + local samples, merged
 const hidden = new Set(); // universe IDs switched off in the chart legend
 let range = RANGES[read("pulse.range")] ? read("pulse.range") : "24h";
+let mode = read("pulse.mode") === "pct" ? "pct" : "abs"; // chart values: players, or % change since the range start
+
+// a game's points for the chart: in range, and as % change from the first one in "pct" mode
+function plotPoints(g) {
+  const pts = inRange(series.get(g.universeId) || []);
+  if (mode === "abs" || !pts.length) return pts.map((p) => ({ ...p, raw: p.v }));
+  const base = pts[0].v || 1;
+  return pts.map((p) => ({ t: p.t, v: (p.v / base - 1) * 100, raw: p.v }));
+}
+const pctLabel = (v) => `${v > 0 ? "+" : ""}${Math.abs(v) < 10 ? v.toFixed(1) : Math.round(v)}%`;
 let hover = null; // pointer x over the chart
 let first = true;
 
@@ -412,12 +422,12 @@ const chart = { view: null, from: null, to: null, animStart: 0, reveal: reduceMo
 
 function chartTarget() {
   const t1 = Date.now();
-  const pts = games.filter((g) => !hidden.has(g.universeId)).flatMap((g) => inRange(series.get(g.universeId) || []));
+  const pts = games.filter((g) => !hidden.has(g.universeId)).flatMap(plotPoints);
   if (!pts.length) return null;
   const vs = pts.map((p) => p.v);
   const vmin = Math.min(...vs), vmax = Math.max(...vs);
-  const pad = (vmax - vmin) * 0.12 || vmax * 0.1 || 1;
-  const s = niceScale(Math.max(0, vmin - pad), vmax + pad);
+  const pad = (vmax - vmin) * 0.12 || Math.abs(vmax) * 0.1 || 1;
+  const s = niceScale(mode === "abs" ? Math.max(0, vmin - pad) : vmin - pad, vmax + pad);
   const t0 = Math.min(t1 - 60e3, Math.min(...pts.map((p) => p.t))); // span the data, at least a minute wide
   return { t0, t1, lo: s.lo, hi: s.hi, step: s.step };
 }
@@ -494,7 +504,7 @@ function drawChart() {
     ctx.moveTo(pad.l, yy);
     ctx.lineTo(width - pad.r, yy);
     ctx.stroke();
-    ctx.fillText(nf.format(val), pad.l - 10, yy + 4);
+    ctx.fillText(mode === "pct" ? pctLabel(Math.round(val * 100) / 100) : nf.format(val), pad.l - 10, yy + 4);
   }
   ctx.setLineDash([]);
   // time labels on round local times, spaced so they never repeat
@@ -516,7 +526,7 @@ function drawChart() {
   const ends = [], rows = [];
   for (const g of games) {
     if (hidden.has(g.universeId)) continue;
-    const pts = (series.get(g.universeId) || []).filter((p) => p.t >= v.t0 - 60e3);
+    const pts = plotPoints(g);
     if (!pts.length) continue;
     const c = colorOf(g);
     const P = pts.map((p) => [x(p.t), y(p.v)]);
@@ -566,7 +576,7 @@ function drawChart() {
       const i = document.createElement("i");
       i.style.background = c;
       const b = document.createElement("b");
-      b.textContent = full.format(p.v);
+      b.textContent = mode === "pct" ? `${pctLabel(p.v)} · ${nf.format(p.raw)}` : full.format(p.v);
       r.append(i, b, ` ${shortName(g.name).slice(0, 18)}`);
       return r;
     })
@@ -611,7 +621,7 @@ function restartPollBar() {
 function setRange(r) {
   range = r;
   store("pulse.range", r);
-  document.querySelectorAll(".ranges button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.range === r)));
+  document.querySelectorAll("[data-range]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.range === r)));
   document.querySelectorAll(".range-label").forEach((s) => (s.textContent = r));
   if (games.length) render();
 }
@@ -629,7 +639,16 @@ $("#add").addEventListener("submit", (e) => {
   refresh();
 });
 
-document.querySelectorAll(".ranges button").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
+document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
+
+function setMode(m) {
+  mode = m;
+  store("pulse.mode", m);
+  document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+  if (games.length) updateChart();
+}
+document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+setMode(mode);
 
 const plot = $("#chart");
 plot.addEventListener("pointermove", (e) => {
