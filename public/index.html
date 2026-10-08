@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pulse — Live Roblox Game Analytics</title>
+  <meta name="description" content="Track and compare live player counts, visits and ratings for any Roblox game.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="beat"></span>Pulse</div>
+    <form id="add" class="add" autocomplete="off">
+      <input id="query" placeholder="Paste a Roblox game link or place ID" aria-label="Roblox game link or place ID">
+      <button type="submit">Track</button>
+    </form>
+    <div class="live"><span class="dot"></span><span id="status">Connecting…</span></div>
+  </header>
+
+  <main>
+    <section class="hero-stats">
+      <div class="big-stat">
+        <span class="label">Players right now · tracked games</span>
+        <span id="total" class="value">—</span>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-head">
+          <span class="label">Concurrent players · this session</span>
+          <div id="legend" class="legend"></div>
+        </div>
+        <canvas id="chart"></canvas>
+        <div id="tooltip" class="tooltip" hidden></div>
+      </div>
+    </section>
+
+    <p id="error" class="error" hidden></p>
+
+    <section id="games" class="games" aria-live="polite"></section>
+
+    <section class="share">
+      <span class="label">Share of players</span>
+      <div id="share" class="share-bar"></div>
+    </section>
+  </main>
+
+  <footer>
+    Data from Roblox's public APIs, refreshed every 30 seconds. Not affiliated with Roblox.
+    · Built by <a href="https://mistrkoala.netlify.app" target="_blank" rel="noopener">Koala</a>
+  </footer>
+
+  <template id="card-tpl">
+    <article class="card">
+      <button class="remove" aria-label="Stop tracking">×</button>
+      <div class="card-top">
+        <img class="icon" alt="" loading="lazy">
+        <div>
+          <a class="name" target="_blank" rel="noopener"></a>
+          <div class="creator"></div>
+        </div>
+      </div>
+      <div class="ccu"><span class="ccu-value"></span><span class="delta"></span></div>
+      <span class="ccu-label">playing now</span>
+      <canvas class="spark"></canvas>
+      <dl class="metrics">
+        <div><dt>Visits</dt><dd class="visits"></dd></div>
+        <div><dt>Favorites</dt><dd class="favorites"></dd></div>
+        <div><dt>Rating</dt><dd class="rating"></dd></div>
+        <div><dt>Updated</dt><dd class="updated"></dd></div>
+      </dl>
+      <div class="rating-bar"><i></i></div>
+    </article>
+  </template>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
